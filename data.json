@@ -1,0 +1,135 @@
+{
+  "projectTitle": "Clips2Story: Training-free Video Storyboarding and Editing using Multimodal Retrieval-Embedded Generation",
+  "genres": [
+    {
+      "id": "documentary",
+      "label": "Documentary",
+      "sets": [
+        {
+          "id": "1",
+          "keyword": "04_extinction",
+          "youtubeEmbed": "https://www.youtube.com/embed/23BGbVBxXdQ",
+          "local": {
+            "nf": "documentary/1/04_extinction_no_narration.mp4",
+            "ours": "documentary/1/04_extinction_ours.mp4",
+            "regen": "documentary/1/doc_06_regen.mp4"
+          }
+        },
+        {
+          "id": "2",
+          "keyword": "05_human_dog_interaction",
+          "youtubeEmbed": "https://www.youtube.com/embed/jfLAaGtNc7U",
+          "local": {
+            "nf": "documentary/2/05_human_dog_interaction_no_narration.mp4",
+            "ours": "documentary/2/05_human_dog_interaction_ours.mp4",
+            "regen": "documentary/2/doc_14_regen.mp4"
+          }
+        }
+      ]
+    },
+    {
+      "id": "film",
+      "label": "Film",
+      "sets": [
+        {
+          "id": "1",
+          "keyword": "05_romance",
+          "youtubeEmbed": "https://www.youtube.com/embed/kmYcT5gT6a4",
+          "local": {
+            "nf": "film/1/05_romance_no_narration.mp4",
+            "ours": "film/1/05_romance_ours.mp4",
+            "regen": "film/1/film_02_regen.mp4"
+          }
+        },
+        {
+          "id": "2",
+          "keyword": "05_talking_plant",
+          "youtubeEmbed": "https://www.youtube.com/embed/UhSP0ldQnuk",
+          "local": {
+            "nf": "film/2/05_talking_plant_no_narration.mp4",
+            "ours": "film/2/05_talking_plant_ours.mp4",
+            "regen": "film/2/film_05_regen.mp4"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lecture",
+      "label": "Lecture",
+      "sets": [
+        {
+          "id": "1",
+          "keyword": "04_options",
+          "youtubeEmbed": "https://www.youtube.com/embed/wvXDB9dMdEo",
+          "local": {
+            "nf": "lecture/1/04_options_no_narration.mp4",
+            "ours": "lecture/1/04_options_ours.mp4",
+            "regen": "lecture/1/lect_01_regen.mp4"
+          }
+        },
+        {
+          "id": "2",
+          "keyword": "02_machine_learning",
+          "youtubeEmbed": "https://www.youtube.com/embed/0sKPkJME2Jw",
+          "local": {
+            "nf": "lecture/2/02_machine_learning_no_narration.mp4",
+            "ours": "lecture/2/02_machine_learning_ours.mp4",
+            "regen": "lecture/2/lect_13_regen.mp4"
+          }
+        }
+      ]
+    },
+    {
+      "id": "news",
+      "label": "News",
+      "sets": [
+        {
+          "id": "1",
+          "keyword": "01_ilya_malinin",
+          "youtubeEmbed": "https://www.youtube.com/embed/tX80LkEqytg",
+          "local": {
+            "nf": "news/1/01_ilya_malinin_no_narration.mp4",
+            "ours": "news/1/01_ilya_malinin_ours.mp4",
+            "regen": "news/1/news_02_regen.mp4"
+          }
+        },
+        {
+          "id": "2",
+          "keyword": "01_nancy_guthrie",
+          "youtubeEmbed": "https://www.youtube.com/embed/fbgQG61Irvs",
+          "local": {
+            "nf": "news/2/01_nancy_guthrie_no_narration.mp4",
+            "ours": "news/2/01_nancy_guthrie_ours.mp4",
+            "regen": "news/2/news_08_regen.mp4"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vlog",
+      "label": "Vlog",
+      "sets": [
+        {
+          "id": "1",
+          "keyword": "01_haircut",
+          "youtubeEmbed": "https://www.youtube.com/embed/n2YNMJShKKA",
+          "local": {
+            "nf": "vlog/1/01_haircut_no_narration.mp4",
+            "ours": "vlog/1/01_haircut_ours.mp4",
+            "regen": "vlog/1/vlog_03_regen.mp4"
+          }
+        },
+        {
+          "id": "2",
+          "keyword": "01_mom_life",
+          "youtubeEmbed": "https://www.youtube.com/embed/Tn7CL9rL27I",
+          "local": {
+            "nf": "vlog/2/01_mom_life_no_narration.mp4",
+            "ours": "vlog/2/01_mom_life_ours.mp4",
+            "regen": "vlog/2/vlog_07_regen.mp4"
+          }
+        }
+      ]
+    }
+  ]
+}
