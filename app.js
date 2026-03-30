@@ -11,6 +11,20 @@ function formatKeywordForDisplay(keyword) {
     .join(" ");
 }
 
+/**
+ * GitHub Pages does not serve Git LFS objects from the Pages origin; it serves the tiny LFS pointer file.
+ * When deployed under github.io, rewrite repo-relative media paths to a GitHub-hosted raw download URL.
+ */
+function resolveMediaPath(path) {
+  if (!path) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  const cleaned = path.replace(/^[./]+/, "");
+  const isGitHubPages = window.location.hostname.endsWith("github.io");
+  if (!isGitHubPages) return `./${cleaned}`;
+  // This URL redirects to media.githubusercontent.com and serves the actual LFS object.
+  return `https://github.com/anonreview333/clips2story/raw/main/${cleaned}`;
+}
+
 function buildGenreButtons(genres, activeId, onSelect) {
   const mkBtn = (g, isMobile) => {
     const btn = document.createElement("button");
@@ -104,9 +118,9 @@ function renderGenreSections(genres) {
         "mt-10 grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-4";
 
       const cols = [
-        { key: "nf", label: "Clips2Story-NF", path: set.local.nf },
-        { key: "ours", label: "Clips2Story-ND", path: set.local.ours },
-        { key: "regen", label: "REGen", path: set.local.regen },
+        { key: "nf", label: "Clips2Story-NF", path: resolveMediaPath(set.local.nf) },
+        { key: "ours", label: "Clips2Story-ND", path: resolveMediaPath(set.local.ours) },
+        { key: "regen", label: "REGen", path: resolveMediaPath(set.local.regen) },
       ];
 
       for (const col of cols) {
