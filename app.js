@@ -84,9 +84,8 @@ function renderGenreSections(genres) {
         "rounded-2xl border border-surface-border bg-surface-raised/30 p-4 shadow-xl shadow-black/20 sm:p-6";
 
       const heading = document.createElement("h2");
-      heading.className =
-        "text-lg font-semibold text-white sm:text-xl";
-      heading.textContent = `Target Keyword: ${formatKeywordForDisplay(set.keyword)}`;
+      heading.className = "text-lg font-semibold text-white sm:text-xl";
+      heading.textContent = `Source video`;
 
       const originalSection = document.createElement("div");
       originalSection.className = "mt-4 max-w-xs sm:max-w-sm";
@@ -96,40 +95,78 @@ function renderGenreSections(genres) {
         "mb-2 text-xs font-medium uppercase tracking-wide text-slate-500";
       originalLabel.textContent = "Original source";
 
-      const iframeWrap = document.createElement("div");
-      iframeWrap.className =
-        "overflow-hidden rounded-lg border border-surface-border/80 bg-black aspect-video w-full shadow-inner";
-      const iframe = document.createElement("iframe");
-      iframe.className = "h-full w-full";
-      iframe.src = set.youtubeEmbed;
-      iframe.title = "Original source video";
-      iframe.setAttribute("allowfullscreen", "");
-      iframe.setAttribute(
-        "allow",
-        "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      );
-      iframe.loading = "lazy";
-      iframeWrap.appendChild(iframe);
       originalSection.appendChild(originalLabel);
-      originalSection.appendChild(iframeWrap);
+      if (set.sourceLocal) {
+        const vid = document.createElement("video");
+        vid.className =
+          "w-full overflow-hidden rounded-lg border border-surface-border/80 bg-black aspect-video object-contain shadow-inner";
+        vid.controls = true;
+        vid.muted = true;
+        vid.playsInline = true;
+        vid.preload = "metadata";
+        vid.src = resolveMediaPath(set.sourceLocal);
+        originalSection.appendChild(vid);
+      } else {
+        const iframeWrap = document.createElement("div");
+        iframeWrap.className =
+          "overflow-hidden rounded-lg border border-surface-border/80 bg-black aspect-video w-full shadow-inner";
+        const iframe = document.createElement("iframe");
+        iframe.className = "h-full w-full";
+        iframe.src = set.youtubeEmbed;
+        iframe.title = "Original source video";
+        iframe.setAttribute("allowfullscreen", "");
+        iframe.setAttribute(
+          "allow",
+          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        );
+        iframe.loading = "lazy";
+        iframeWrap.appendChild(iframe);
+        originalSection.appendChild(iframeWrap);
+      }
 
-      const grid = document.createElement("div");
-      grid.className =
-        "mt-10 grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-4";
+      const buildFramesStrip = (videoPath) => {
+        if (!videoPath) return null;
+        // videoPath is repo-relative like "vlog/1/vlog_03_teasergen.mp4"
+        const parts = String(videoPath).replace(/^[./]+/, "").split("/");
+        if (parts.length < 3) return null;
+        const genre = parts[0];
+        const id = parts[1];
+        const filename = parts[parts.length - 1];
+        const base = filename.replace(/\.mp4$/i, "");
+        const framesBase = `${genre}/${id}/frames/${base}`;
 
-      const cols = [
-        { key: "nf", label: "Clips2Story-NF", path: resolveMediaPath(set.local.nf) },
-        { key: "ours", label: "Clips2Story-ND", path: resolveMediaPath(set.local.ours) },
-        { key: "regen", label: "REGen", path: resolveMediaPath(set.local.regen) },
-      ];
+        const strip = document.createElement("div");
+        strip.className =
+          "mt-2 flex gap-2 overflow-x-auto rounded-lg border border-surface-border/60 bg-black/20 p-2";
+        strip.setAttribute("aria-label", "Thumbnail frames");
 
-      for (const col of cols) {
+        // Try a reasonable number; missing frames will auto-hide on error.
+        const MAX_FRAMES = 30;
+        for (let i = 1; i <= MAX_FRAMES; i++) {
+          const img = document.createElement("img");
+          const num = String(i).padStart(6, "0");
+          img.src = resolveMediaPath(`${framesBase}/frame_${num}.png`);
+          img.loading = "lazy";
+          img.alt = `Frame ${i}`;
+          img.className =
+            "h-14 w-auto shrink-0 rounded-md border border-surface-border/60 bg-black object-cover";
+          img.addEventListener("error", () => {
+            // If a frame is missing, hide it to keep the strip clean.
+            img.remove();
+          });
+          strip.appendChild(img);
+        }
+
+        return strip;
+      };
+
+      const mkVideoCell = (label, src) => {
         const cell = document.createElement("div");
         cell.className = "flex flex-col gap-2";
         const lab = document.createElement("p");
         lab.className =
           "text-center text-xs font-semibold uppercase tracking-wide text-slate-400";
-        lab.textContent = col.label;
+        lab.textContent = label;
         const vid = document.createElement("video");
         vid.className =
           "w-full rounded-lg border border-surface-border bg-black aspect-video object-contain";
@@ -137,15 +174,49 @@ function renderGenreSections(genres) {
         vid.muted = true;
         vid.playsInline = true;
         vid.preload = "metadata";
-        vid.src = col.path;
+        vid.src = resolveMediaPath(src);
         cell.appendChild(lab);
         cell.appendChild(vid);
-        grid.appendChild(cell);
-      }
+        const strip = buildFramesStrip(src);
+        if (strip) cell.appendChild(strip);
+        return cell;
+      };
+
+      const mkKeywordBlock = (kw) => {
+        const wrap = document.createElement("section");
+        wrap.className = "mt-10 space-y-3";
+        const h = document.createElement("p");
+        h.className = "text-sm font-semibold text-slate-200";
+        h.textContent = `Target Keyword: ${formatKeywordForDisplay(kw.keyword)}`;
+        const grid = document.createElement("div");
+        grid.className = "grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-4";
+        grid.appendChild(mkVideoCell("Clips2Story-NF", kw.local?.nf));
+        grid.appendChild(mkVideoCell("Clips2Story-ND", kw.local?.ours));
+        wrap.appendChild(h);
+        wrap.appendChild(grid);
+        return wrap;
+      };
+
+      const mkFixedBlock = (fixed) => {
+        const wrap = document.createElement("section");
+        wrap.className = "mt-10 space-y-3";
+        const h = document.createElement("p");
+        h.className = "text-sm font-semibold text-slate-200";
+        h.textContent = "Baselines";
+        const grid = document.createElement("div");
+        grid.className = "grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-4";
+        grid.appendChild(mkVideoCell("A2Summ", fixed?.a2summ));
+        grid.appendChild(mkVideoCell("TeaserGen", fixed?.teasergen));
+        grid.appendChild(mkVideoCell("REGen", fixed?.regen));
+        wrap.appendChild(h);
+        wrap.appendChild(grid);
+        return wrap;
+      };
 
       block.appendChild(heading);
       block.appendChild(originalSection);
-      block.appendChild(grid);
+      for (const kw of set.keywords || []) block.appendChild(mkKeywordBlock(kw));
+      block.appendChild(mkFixedBlock(set.fixed));
       wrap.appendChild(block);
     }
 

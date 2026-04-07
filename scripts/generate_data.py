@@ -15,6 +15,15 @@ OUT_PATH = ROOT / "data.json"
 
 GENRES = ["documentary", "film", "lecture", "news", "vlog"]
 
+# For certain examples, we use a local MP4 for the source video instead of YouTube.
+# Keys are (genre, id) and values are filenames inside {genre}/{id}/.
+# GitHub LFS rejects files > 2GB per object — keep local sources under that (compress if needed).
+SOURCE_LOCAL_OVERRIDES: dict[tuple[str, str], str] = {
+    ("documentary", "1"): "Mammal Origins ｜ Full Documentary ｜ NOVA ｜ PBS-23BGbVBxXdQ.mp4",
+    ("film", "2"): "The Little Shop of Horrors 1960 Full Movie HD 1080p.mp4",
+    ("vlog", "1"): "Attempting VEDA？ ｜ Meals, Planner Sticker Haul, Bathroom Organizing Project-n2YNMJShKKA.mp4",
+}
+
 
 def youtube_watch_to_embed(watch_url: str) -> str | None:
     try:
@@ -35,54 +44,69 @@ def list_mp4(d: Path) -> list[str]:
         return []
     return [f.name for f in d.iterdir() if f.suffix.lower() == ".mp4"]
 
-
-def resolve_regen(files: list[str], keyword: str) -> str | None:
-    exact = f"{keyword}_regen.mp4"
-    if exact in files:
-        return exact
-    regens = [f for f in files if re.search(r"_regen\.mp4$", f, re.I)]
-    if len(regens) == 1:
-        return regens[0]
-    if not regens:
+def pick_single(files: list[str], suffix: str) -> str | None:
+    hits = [f for f in files if f.lower().endswith(suffix.lower())]
+    if not hits:
         return None
-    m = re.match(r"^(\d+)_", keyword)
-    if m:
-        p = m.group(1)
-        for f in regens:
-            if f.startswith(f"{p}_") or f.startswith(p):
-                return f
-    return regens[0]
+    if len(hits) > 1:
+        hits.sort()
+    return hits[0]
 
 
-def build_sets(genre: str, id_str: str, youtube_embed: str) -> list[dict]:
+def build_example(genre: str, id_str: str, youtube_embed: str) -> dict | None:
     dir_path = ROOT / genre / id_str
     files = list_mp4(dir_path)
     nf_files = [f for f in files if f.endswith("_no_narration.mp4")]
-    out = []
+
+    keyword_clips: list[dict] = []
     for nf in nf_files:
         keyword = nf.replace("_no_narration.mp4", "").replace("_no_narration.MP4", "")
         ours_name = f"{keyword}_ours.mp4"
         if ours_name not in files:
             print(f"[skip] {dir_path}: missing {ours_name} for keyword {keyword!r}")
             continue
-        regen_name = resolve_regen(files, keyword)
-        if not regen_name:
-            print(f"[skip] {dir_path}: no REGen for keyword {keyword!r}")
-            continue
-        base = f"{genre}/{id_str}"
-        out.append(
+        keyword_clips.append({"keyword": keyword, "nf": nf, "ours": ours_name})
+
+    keyword_clips.sort(key=lambda x: x["keyword"])
+    if len(keyword_clips) < 2:
+        print(f"[skip] {dir_path}: expected >=2 keywords, found {len(keyword_clips)}")
+        return None
+
+    base = f"{genre}/{id_str}"
+
+    a2summ_name = pick_single(files, "_a2summ.mp4")
+    teasergen_name = pick_single(files, "_teasergen.mp4")
+    regen_name = pick_single(files, "_regen.mp4")
+    fixed = {
+        "a2summ": f"{base}/{a2summ_name}" if a2summ_name else None,
+        "teasergen": f"{base}/{teasergen_name}" if teasergen_name else None,
+        "regen": f"{base}/{regen_name}" if regen_name else None,
+    }
+    for k, v in fixed.items():
+        if not v:
+            print(f"[warn] {dir_path}: missing fixed output {k} (*{k}.mp4)")
+
+    selected = keyword_clips[:2]
+    source_local = None
+    override = SOURCE_LOCAL_OVERRIDES.get((genre, id_str))
+    if override:
+        if override in files:
+            source_local = f"{base}/{override}"
+        else:
+            print(f"[warn] {dir_path}: missing sourceLocal override file ({override})")
+    return {
+        "id": id_str,
+        "youtubeEmbed": youtube_embed,
+        "sourceLocal": source_local,
+        "keywords": [
             {
-                "id": id_str,
-                "keyword": keyword,
-                "youtubeEmbed": youtube_embed,
-                "local": {
-                    "nf": f"{base}/{nf}",
-                    "ours": f"{base}/{ours_name}",
-                    "regen": f"{base}/{regen_name}",
-                },
+                "keyword": s["keyword"],
+                "local": {"nf": f"{base}/{s['nf']}", "ours": f"{base}/{s['ours']}"},
             }
-        )
-    return out
+            for s in selected
+        ],
+        "fixed": fixed,
+    }
 
 
 def main() -> None:
@@ -105,7 +129,9 @@ def main() -> None:
         if not embed:
             print(f"Could not parse YouTube URL for {genre}/{id_str}")
             continue
-        by_genre[genre].extend(build_sets(genre, id_str, embed))
+        ex = build_example(genre, id_str, embed)
+        if ex:
+            by_genre[genre].append(ex)
 
     payload = {
         "projectTitle": "Clips2Story: Training-free Video Storyboarding and Editing using Multimodal Retrieval-Embedded Generation",

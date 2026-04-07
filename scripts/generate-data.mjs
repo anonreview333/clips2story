@@ -14,6 +14,15 @@ const OUT_PATH = path.join(ROOT, "data.json");
 
 const GENRES = ["documentary", "film", "lecture", "news", "vlog"];
 
+// For certain examples, use a local MP4 for the source video instead of YouTube.
+// Keys are `${genre}/${id}` and values are filenames inside {genre}/{id}/.
+// GitHub LFS rejects files > 2GB per object — keep local sources under that (compress if needed).
+const SOURCE_LOCAL_OVERRIDES = {
+  "documentary/1": "Mammal Origins ｜ Full Documentary ｜ NOVA ｜ PBS-23BGbVBxXdQ.mp4",
+  "film/2": "The Little Shop of Horrors 1960 Full Movie HD 1080p.mp4",
+  "vlog/1": "Attempting VEDA？ ｜ Meals, Planner Sticker Haul, Bathroom Organizing Project-n2YNMJShKKA.mp4",
+};
+
 function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   const header = lines.shift();
@@ -52,28 +61,22 @@ function listMp4(dir) {
   return fs.readdirSync(dir).filter((f) => f.endsWith(".mp4"));
 }
 
-function resolveRegen(dir, keyword, files) {
-  const exact = `${keyword}_regen.mp4`;
-  if (files.includes(exact)) return exact;
-  const regens = files.filter((f) => /_regen\.mp4$/i.test(f));
-  if (regens.length === 1) return regens[0];
-  if (regens.length === 0) return null;
-  // Multiple regen files: prefer one that shares numeric prefix with keyword (e.g. 04_*)
-  const kwPrefix = keyword.match(/^(\d+)_/);
-  if (kwPrefix) {
-    const p = kwPrefix[1];
-    const hit = regens.find((f) => f.startsWith(p + "_") || f.startsWith(p));
-    if (hit) return hit;
-  }
-  return regens[0];
+function pickSingle(files, suffix) {
+  const s = suffix.toLowerCase();
+  const hits = files.filter((f) => f.toLowerCase().endsWith(s));
+  if (hits.length === 0) return null;
+  if (hits.length > 1) hits.sort((a, b) => a.localeCompare(b));
+  return hits[0];
 }
 
-function buildSetForDir(genre, idStr, youtubeEmbed) {
+function buildExampleForDir(genre, idStr, youtubeEmbed) {
   const dir = path.join(ROOT, genre, idStr);
   const files = listMp4(dir);
   const nfFiles = files.filter((f) => f.endsWith("_no_narration.mp4"));
 
-  const sets = [];
+  // Each source video now has exactly 2 target keywords. We derive them from the
+  // existing NF clips in the folder (current place where keywords live).
+  const keywordClips = [];
   for (const nf of nfFiles) {
     const keyword = nf.replace(/_no_narration\.mp4$/i, "");
     const oursName = `${keyword}_ours.mp4`;
@@ -81,25 +84,55 @@ function buildSetForDir(genre, idStr, youtubeEmbed) {
       console.warn(`[skip] ${dir}: missing ${oursName} for keyword "${keyword}"`);
       continue;
     }
-    const regenName = resolveRegen(dir, keyword, files);
-    if (!regenName) {
-      console.warn(`[skip] ${dir}: no REGen file for keyword "${keyword}"`);
-      continue;
-    }
-
-    const base = `${genre}/${idStr}`;
-    sets.push({
-      keyword,
-      youtubeEmbed,
-      local: {
-        nf: `${base}/${nf}`,
-        ours: `${base}/${oursName}`,
-        regen: `${base}/${regenName}`,
-      },
-    });
+    keywordClips.push({ keyword, nf, oursName });
   }
 
-  return sets;
+  keywordClips.sort((a, b) => a.keyword.localeCompare(b.keyword));
+  if (keywordClips.length < 2) {
+    console.warn(`[skip] ${dir}: expected >=2 keywords, found ${keywordClips.length}`);
+    return null;
+  }
+
+  const selected = keywordClips.slice(0, 2);
+  const base = `${genre}/${idStr}`;
+
+  // These 3 outputs do not change based on keyword.
+  const a2summName = pickSingle(files, "_a2summ.mp4");
+  const teasergenName = pickSingle(files, "_teasergen.mp4");
+  const regenName = pickSingle(files, "_regen.mp4");
+  const fixed = {
+    a2summ: a2summName ? `${base}/${a2summName}` : null,
+    teasergen: teasergenName ? `${base}/${teasergenName}` : null,
+    regen: regenName ? `${base}/${regenName}` : null,
+  };
+  for (const [k, v] of Object.entries(fixed)) {
+    if (!v) console.warn(`[warn] ${dir}: missing fixed output ${k} (*${k}.mp4)`);
+  }
+
+  let sourceLocal = null;
+  const override = SOURCE_LOCAL_OVERRIDES[`${genre}/${idStr}`];
+  if (override) {
+    if (files.includes(override)) sourceLocal = `${base}/${override}`;
+    else console.warn(`[warn] ${dir}: missing sourceLocal override file (${override})`);
+  }
+
+  return {
+    id: idStr,
+    youtubeEmbed,
+    sourceLocal,
+    keywords: selected.map((s) => ({
+      keyword: s.keyword,
+      local: {
+        nf: `${base}/${s.nf}`,
+        ours: `${base}/${s.oursName}`,
+      },
+    })),
+    fixed: {
+      a2summ: fixed.a2summ,
+      teasergen: fixed.teasergen,
+      regen: fixed.regen,
+    },
+  };
 }
 
 function main() {
@@ -121,10 +154,8 @@ function main() {
       continue;
     }
     const idStr = String(id);
-    const sets = buildSetForDir(genre, idStr, embed);
-    for (const s of sets) {
-      byGenre[genre].push({ id: idStr, ...s });
-    }
+    const ex = buildExampleForDir(genre, idStr, embed);
+    if (ex) byGenre[genre].push(ex);
   }
 
   const payload = {
