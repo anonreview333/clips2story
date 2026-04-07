@@ -257,15 +257,6 @@ async function main() {
   }
 
   document.getElementById("project-title").textContent = data.projectTitle;
-  document.getElementById("abstract").textContent = data.abstractPlaceholder;
-
-  const pipe = document.getElementById("pipeline");
-  pipe.innerHTML = "";
-  for (const line of data.pipeline || []) {
-    const li = document.createElement("li");
-    li.textContent = line;
-    pipe.appendChild(li);
-  }
 
   const genres = data.genres || [];
   renderGenreSections(genres);
