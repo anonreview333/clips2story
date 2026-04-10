@@ -56,6 +56,20 @@ function createDetails({ title, subtitle, open = false, content }) {
   return d;
 }
 
+/** Visible workflow section (not collapsible); use for main steps 1–7 on the home panel. */
+function createWorkflowStep({ title, subtitle, content }) {
+  const wrap = el(
+    "div",
+    "rounded-xl border border-surface-border bg-surface-raised/25 p-4 space-y-3"
+  );
+  wrap.appendChild(el("p", "text-sm font-semibold text-white", title));
+  if (subtitle) {
+    wrap.appendChild(el("p", "text-sm text-slate-400", subtitle));
+  }
+  wrap.appendChild(content);
+  return wrap;
+}
+
 function jsonToLines(value) {
   try {
     return JSON.stringify(value, null, 2).split("\n");
@@ -161,7 +175,10 @@ function buildFramesStrip(videoPath, { startIndex = 1, maxFrames = 30 } = {}) {
   return strip;
 }
 
-function buildFramesGrid(videoPath, { startIndex = 1, count = 12 } = {}) {
+function buildFramesGrid(
+  videoPath,
+  { startIndex = 1, count = 12, objectFit = "cover" } = {}
+) {
   if (!videoPath) return null;
   const parts = String(videoPath).replace(/^[./]+/, "").split("/");
   if (parts.length < 3) return null;
@@ -170,6 +187,8 @@ function buildFramesGrid(videoPath, { startIndex = 1, count = 12 } = {}) {
   const filename = parts[parts.length - 1];
   const base = filename.replace(/\.mp4$/i, "");
   const framesBase = `${genre}/${id}/frames/${base}`;
+
+  const fitClass = objectFit === "contain" ? "object-contain" : "object-cover";
 
   const grid = el(
     "div",
@@ -183,8 +202,7 @@ function buildFramesGrid(videoPath, { startIndex = 1, count = 12 } = {}) {
     img.src = resolveMediaPath(`${framesBase}/frame_${num}.png`);
     img.loading = "lazy";
     img.alt = `Frame ${i}`;
-    img.className =
-      "aspect-video w-full rounded-md border border-surface-border/60 bg-black object-cover";
+    img.className = `aspect-video w-full rounded-md border border-surface-border/60 bg-black ${fitClass}`;
     img.addEventListener("error", () => {
       img.remove();
     });
@@ -698,10 +716,9 @@ function renderHomePanel() {
       vWrap.appendChild(iframe);
       step1.appendChild(vWrap);
       steps.appendChild(
-        createDetails({
+        createWorkflowStep({
           title: "1) Input Video",
           subtitle: "Example YouTube source video used for the pipeline.",
-          open: true,
           content: step1,
         })
       );
@@ -733,9 +750,8 @@ function renderHomePanel() {
         );
       }
       steps.appendChild(
-        createDetails({
+        createWorkflowStep({
           title: "2) Shot Detection",
-          open: false,
           content: step2,
         })
       );
@@ -750,12 +766,13 @@ function renderHomePanel() {
         )
       );
       step3.appendChild(
-        createDetails({
-          title: `Top ${topShotIds.length} shots`,
-          open: true,
-          content: metadataBlockForShots(topShotIds),
-        })
+        el(
+          "p",
+          "text-sm font-semibold text-slate-200",
+          `Top ${topShotIds.length} shots`
+        )
       );
+      step3.appendChild(metadataBlockForShots(topShotIds));
       if (restShotIds.length) {
         step3.appendChild(
           createDetails({
@@ -767,9 +784,8 @@ function renderHomePanel() {
         );
       }
       steps.appendChild(
-        createDetails({
+        createWorkflowStep({
           title: "3) Metadata Collection",
-          open: false,
           content: step3,
         })
       );
@@ -778,47 +794,32 @@ function renderHomePanel() {
       const step4 = el("div", "space-y-4");
       const expl = el("p", "text-sm text-slate-300");
       expl.textContent =
-        "We start with all shot keyframes, then filter to the subset selected for the retrieval pool.";
+        "We start with all shots, then filter to the subset selected for the retrieval pool.";
       step4.appendChild(expl);
 
       step4.appendChild(
-        createDetails({
+        renderKeyframeGridWithRemainder({
           title: `All keyframes (${shotIds.length})`,
-          open: false,
-          content: renderKeyframeGridWithRemainder({
-            title: "All keyframes",
-            shotIds,
-            previewCount: 24,
-          }),
+          shotIds,
+          previewCount: 24,
         })
       );
       step4.appendChild(
-        createDetails({
+        renderKeyframeGridWithRemainder({
           title: `Filtered keyframes (${filtered.length})`,
-          open: true,
-          content: renderKeyframeGridWithRemainder({
-            title: "Filtered keyframes",
-            shotIds: filtered,
-            previewCount: 24,
-          }),
+          shotIds: filtered,
+          previewCount: 24,
         })
       );
       steps.appendChild(
-        createDetails({
+        createWorkflowStep({
           title: "4) Keyword-Based Clip Retrieval",
-          open: false,
           content: step4,
         })
       );
 
       // Step 5
       const step5 = el("div", "space-y-3");
-      step5.appendChild(
-        el(
-          "p",
-          "text-sm text-slate-300"
-        )
-      );
       step5.appendChild(
         renderCodeBlock(promptPreview)
       );
@@ -836,9 +837,8 @@ function renderHomePanel() {
         );
       }
       steps.appendChild(
-        createDetails({
+        createWorkflowStep({
           title: "5) LLM Prompt Example",
-          open: false,
           content: step5,
         })
       );
@@ -854,9 +854,8 @@ function renderHomePanel() {
       );
       step6.appendChild(renderFoldedCodeBlock(jsonToLines(stage1), { previewLines: 90 }));
       steps.appendChild(
-        createDetails({
+        createWorkflowStep({
           title: "6) LLM Timeline Output",
-          open: false,
           content: step6,
         })
       );
@@ -874,12 +873,39 @@ function renderHomePanel() {
         renderFoldedCodeBlock(jsonToLines(stage2), { previewLines: 120 })
       );
       steps.appendChild(
-        createDetails({
+        createWorkflowStep({
           title: "7) Narration–Visual Matching (Clips2Story-ND Only)",
-          open: false,
           content: step7,
         })
       );
+
+      // Step 8 — all ND frames for Documentary 2 / Human–Dog Interaction (no fold)
+      const step8 = el(
+        "div",
+        "rounded-xl border border-surface-border bg-surface-raised/25 p-4 space-y-3"
+      );
+      step8.appendChild(
+        el(
+          "p",
+          "text-sm font-semibold text-white",
+          "8) Generated Video Frames"
+        )
+      );
+      step8.appendChild(
+        el(
+          "p",
+          "text-sm text-slate-300",
+          "All frames for the final output video."
+        )
+      );
+      const ndHumanDogVideo = "documentary/2/05_human_dog_interaction_ours.mp4";
+      const framesGrid = buildFramesGrid(ndHumanDogVideo, {
+        startIndex: 1,
+        count: 40,
+        objectFit: "contain",
+      });
+      if (framesGrid) step8.appendChild(framesGrid);
+      steps.appendChild(step8);
 
       steps.appendChild(renderFinalFramesComparisonSection(siteData));
     } catch (e) {
