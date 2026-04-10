@@ -947,9 +947,8 @@ function renderFinalFramesComparisonSection(siteData) {
           const keywordLabel = formatKeywordForDisplay(kw.keyword || "");
           const videoPath = keyAccessor(kw);
           const frames = el("div", "space-y-2");
-          frames.appendChild(
-            buildFramesGridFolded(videoPath, { previewCount: 16, maxFrames: 30 })
-          );
+          const grid = buildFramesGrid(videoPath, { startIndex: 1, count: 30 });
+          if (grid) frames.appendChild(grid);
 
           block.appendChild(
             createDetails({
