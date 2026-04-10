@@ -1,0 +1,11 @@
+{
+  "session_id": "documentary/doc_14",
+  "rag_stage1": {
+    "plans_root": "/scratch/jw6641/video_eiditing/outputs/documentary/doc_14/plans/rag/stage1",
+    "problems": []
+  },
+  "no_narration": {
+    "plans_root": "/scratch/jw6641/video_eiditing/outputs/documentary/doc_14/plans/no_narration",
+    "problems": []
+  }
+}
