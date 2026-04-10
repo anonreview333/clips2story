@@ -635,7 +635,7 @@ function renderHomePanel() {
           dl.appendChild(item("Caption", summarizeCaption(captions[id])));
           dl.appendChild(item("Background", summarizeBackground(background[id])));
           dl.appendChild(item("Entities", summarizeEntities(entities[id])));
-          dl.appendChild(item("ASR (first ~3 segments)", summarizeAsr(asr[id])));
+          dl.appendChild(item("ASR", summarizeAsr(asr[id])));
           card.appendChild(dl);
           list.appendChild(card);
         }
@@ -759,7 +759,7 @@ function renderHomePanel() {
       if (restShotIds.length) {
         step3.appendChild(
           createDetails({
-            title: `Remaining ${restShotIds.length} shots (collapsed)`,
+            title: `Remaining ${restShotIds.length} shots`,
             subtitle: "Same metadata fields, folded for length.",
             open: false,
             content: metadataBlockForShots(restShotIds),
