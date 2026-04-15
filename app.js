@@ -144,9 +144,9 @@ function resolveMediaPath(path) {
     .join("/");
   const isGitHubPages = window.location.hostname.endsWith("github.io");
   if (!isGitHubPages) return `./${encoded}`;
-  // Prefer direct raw host (fewer redirects; works well with <img>/<video>).
-  // This still serves the actual Git LFS object bytes.
-  return `https://raw.githubusercontent.com/anonreview333/clips2story/main/${encoded}`;
+  // Use GitHub's /raw endpoint so Git LFS objects resolve to actual bytes
+  // (raw.githubusercontent.com may serve the LFS pointer text instead).
+  return `https://github.com/anonreview333/clips2story/raw/main/${encoded}`;
 }
 
 function buildFramesStrip(videoPath, { startIndex = 1, maxFrames = 30 } = {}) {
