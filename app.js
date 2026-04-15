@@ -136,10 +136,17 @@ function resolveMediaPath(path) {
   if (!path) return path;
   if (/^https?:\/\//i.test(path)) return path;
   const cleaned = path.replace(/^[./]+/, "");
+  // Encode per-segment so spaces/unicode in filenames resolve correctly,
+  // while preserving "/" path separators.
+  const encoded = cleaned
+    .split("/")
+    .map((seg) => encodeURIComponent(seg))
+    .join("/");
   const isGitHubPages = window.location.hostname.endsWith("github.io");
-  if (!isGitHubPages) return `./${cleaned}`;
-  // This URL redirects to media.githubusercontent.com and serves the actual LFS object.
-  return `https://github.com/anonreview333/clips2story/raw/main/${cleaned}`;
+  if (!isGitHubPages) return `./${encoded}`;
+  // Prefer direct raw host (fewer redirects; works well with <img>/<video>).
+  // This still serves the actual Git LFS object bytes.
+  return `https://raw.githubusercontent.com/anonreview333/clips2story/main/${encoded}`;
 }
 
 function buildFramesStrip(videoPath, { startIndex = 1, maxFrames = 30 } = {}) {
@@ -888,17 +895,25 @@ function renderHomePanel() {
         el(
           "p",
           "text-sm font-semibold text-white",
-          "8) Generated Video Frames"
+          "8) Generated Video and Frames"
         )
       );
       step8.appendChild(
         el(
           "p",
-          "text-sm text-slate-300",
-          "All frames for the final output video."
+          "text-sm text-slate-300"
         )
       );
       const ndHumanDogVideo = "documentary/2/05_human_dog_interaction_ours.mp4";
+      const ndVideo = document.createElement("video");
+      ndVideo.className =
+        "w-full max-w-3xl overflow-hidden rounded-lg border border-surface-border/80 bg-black aspect-video object-contain shadow-inner";
+      ndVideo.controls = true;
+      ndVideo.muted = true;
+      ndVideo.playsInline = true;
+      ndVideo.preload = "metadata";
+      ndVideo.src = resolveMediaPath(ndHumanDogVideo);
+      step8.appendChild(ndVideo);
       const framesGrid = buildFramesGrid(ndHumanDogVideo, {
         startIndex: 1,
         count: 40,
