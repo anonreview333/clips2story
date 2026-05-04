@@ -146,9 +146,22 @@ function inferGitHubPagesRepo() {
   return { owner, repo: `${owner}.github.io` };
 }
 
+/** Default branch for GitHub-hosted media (must match where demo assets live). */
+const GITHUB_PAGES_MEDIA_BRANCH = "main";
+
+/**
+ * Direct LFS/binary URL — avoids a 302 from github.com/.../raw/... which breaks
+ * HTML5 <video> (range/metadata) and can confuse image loads for large assets.
+ */
+function githubPagesMediaUrl(gh, encodedRepoRelativePath) {
+  const o = encodeURIComponent(gh.owner);
+  const r = encodeURIComponent(gh.repo);
+  return `https://media.githubusercontent.com/media/${o}/${r}/${GITHUB_PAGES_MEDIA_BRANCH}/${encodedRepoRelativePath}`;
+}
+
 /**
  * GitHub Pages does not serve Git LFS objects from the Pages origin; it serves the tiny LFS pointer file.
- * When deployed under github.io, rewrite repo-relative media paths to a GitHub-hosted raw download URL.
+ * When deployed under github.io, rewrite repo-relative media paths to GitHub's LFS-aware CDN URL.
  */
 function resolveMediaPath(path) {
   if (!path) return path;
@@ -164,9 +177,23 @@ function resolveMediaPath(path) {
   if (!isGitHubPages) return `./${encoded}`;
   const gh = inferGitHubPagesRepo();
   if (!gh) return `./${encoded}`;
-  // Use GitHub's /raw endpoint so Git LFS objects resolve to actual bytes
-  // (raw.githubusercontent.com may serve the LFS pointer text instead).
-  return `https://github.com/${gh.owner}/${gh.repo}/raw/main/${encoded}`;
+  return githubPagesMediaUrl(gh, encoded);
+}
+
+/** Wire <video> to a repo-relative MP4 via <source type="video/mp4"> (helps with GitHub octet-stream). */
+function setVideoMp4FromRepoPath(vid, repoRelativePath) {
+  if (!vid || !repoRelativePath) return;
+  const url = resolveMediaPath(repoRelativePath);
+  vid.replaceChildren();
+  const source = document.createElement("source");
+  source.src = url;
+  source.type = "video/mp4";
+  vid.appendChild(source);
+  try {
+    vid.load();
+  } catch {
+    // ignore
+  }
 }
 
 function buildFramesStrip(videoPath, { startIndex = 1, maxFrames = 30 } = {}) {
@@ -355,7 +382,7 @@ function renderGenreSections(genres) {
         vid.muted = true;
         vid.playsInline = true;
         vid.preload = "metadata";
-        vid.src = resolveMediaPath(set.sourceLocal);
+        setVideoMp4FromRepoPath(vid, set.sourceLocal);
         originalSection.appendChild(vid);
       } else if (set.youtubeEmbed) {
         const iframeWrap = document.createElement("div");
@@ -389,7 +416,7 @@ function renderGenreSections(genres) {
         vid.muted = true;
         vid.playsInline = true;
         vid.preload = "metadata";
-        vid.src = resolveMediaPath(src);
+        setVideoMp4FromRepoPath(vid, src);
         cell.appendChild(lab);
         cell.appendChild(vid);
         const strip = buildFramesStrip(src);
@@ -586,7 +613,7 @@ function renderHomePanel() {
 
       const doc2Set = siteData?.genres
         ?.find((g) => g.id === "documentary")
-        ?.sets?.find((s) => s.id === "2");
+        ?.sets?.find((s) => String(s.id) === "2");
 
       const shotIds = Array.isArray(shots)
         ? shots.map((s) => s.shot_id).filter(Boolean)
@@ -711,7 +738,7 @@ function renderHomePanel() {
         vid.muted = true;
         vid.playsInline = true;
         vid.preload = "metadata";
-        vid.src = resolveMediaPath(doc2Set.sourceLocal);
+        setVideoMp4FromRepoPath(vid, doc2Set.sourceLocal);
         vid.title = "Input video (documentary, 2)";
         vWrap.appendChild(vid);
       } else if (doc2Set?.youtubeEmbed) {
@@ -918,7 +945,7 @@ function renderHomePanel() {
       ndVideo.muted = true;
       ndVideo.playsInline = true;
       ndVideo.preload = "metadata";
-      ndVideo.src = resolveMediaPath(ndHumanDogVideo);
+      setVideoMp4FromRepoPath(ndVideo, ndHumanDogVideo);
       step8.appendChild(ndVideo);
       const framesGrid = buildFramesGrid(ndHumanDogVideo, {
         startIndex: 1,
