@@ -19,9 +19,15 @@ const GENRES = ["documentary", "film", "lecture", "news", "vlog"];
 // GitHub LFS rejects files > 2GB per object — keep local sources under that (compress if needed).
 const SOURCE_LOCAL_OVERRIDES = {
   "documentary/1": "Mammal Origins ｜ Full Documentary ｜ NOVA ｜ PBS-23BGbVBxXdQ.mp4",
+  "documentary/2": "Can Dogs Talk？ ｜ Full Documentary ｜ NOVA ｜ PBS-jfLAaGtNc7U.mp4",
   "film/2": "The Little Shop of Horrors 1960 Full Movie HD 1080p.mp4",
   "vlog/1": "Attempting VEDA？ ｜ Meals, Planner Sticker Haul, Bathroom Organizing Project-n2YNMJShKKA.mp4",
 };
+
+function isLocalSourcePath(link) {
+  const t = (link || "").trim();
+  return t.length > 0 && !/^https?:\/\//i.test(t) && t.endsWith(".mp4");
+}
 
 function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/);
@@ -148,12 +154,17 @@ function main() {
       console.warn(`Unknown genre in CSV: ${genre}`);
       continue;
     }
-    const embed = youtubeWatchToEmbed(youtube_link);
-    if (!embed) {
-      console.warn(`Could not parse YouTube URL for ${genre}/${id}`);
-      continue;
-    }
     const idStr = String(id);
+    let embed = youtubeWatchToEmbed(youtube_link);
+    if (!embed) {
+      const key = `${genre}/${idStr}`;
+      if (SOURCE_LOCAL_OVERRIDES[key] || isLocalSourcePath(youtube_link)) {
+        embed = null;
+      } else {
+        console.warn(`Could not parse YouTube URL for ${genre}/${id}`);
+        continue;
+      }
+    }
     const ex = buildExampleForDir(genre, idStr, embed);
     if (ex) byGenre[genre].push(ex);
   }

@@ -20,9 +20,15 @@ GENRES = ["documentary", "film", "lecture", "news", "vlog"]
 # GitHub LFS rejects files > 2GB per object — keep local sources under that (compress if needed).
 SOURCE_LOCAL_OVERRIDES: dict[tuple[str, str], str] = {
     ("documentary", "1"): "Mammal Origins ｜ Full Documentary ｜ NOVA ｜ PBS-23BGbVBxXdQ.mp4",
+    ("documentary", "2"): "Can Dogs Talk？ ｜ Full Documentary ｜ NOVA ｜ PBS-jfLAaGtNc7U.mp4",
     ("film", "2"): "The Little Shop of Horrors 1960 Full Movie HD 1080p.mp4",
     ("vlog", "1"): "Attempting VEDA？ ｜ Meals, Planner Sticker Haul, Bathroom Organizing Project-n2YNMJShKKA.mp4",
 }
+
+
+def is_local_source_path(link: str) -> bool:
+    t = (link or "").strip()
+    return bool(t) and not re.match(r"^https?://", t, re.I) and t.endswith(".mp4")
 
 
 def youtube_watch_to_embed(watch_url: str) -> str | None:
@@ -53,7 +59,7 @@ def pick_single(files: list[str], suffix: str) -> str | None:
     return hits[0]
 
 
-def build_example(genre: str, id_str: str, youtube_embed: str) -> dict | None:
+def build_example(genre: str, id_str: str, youtube_embed: str | None) -> dict | None:
     dir_path = ROOT / genre / id_str
     files = list_mp4(dir_path)
     nf_files = [f for f in files if f.endswith("_no_narration.mp4")]
@@ -127,8 +133,12 @@ def main() -> None:
             continue
         embed = youtube_watch_to_embed(link)
         if not embed:
-            print(f"Could not parse YouTube URL for {genre}/{id_str}")
-            continue
+            key = (genre, id_str)
+            if key in SOURCE_LOCAL_OVERRIDES or is_local_source_path(link):
+                embed = None  # type: ignore[assignment]
+            else:
+                print(f"Could not parse YouTube URL for {genre}/{id_str}")
+                continue
         ex = build_example(genre, id_str, embed)
         if ex:
             by_genre[genre].append(ex)

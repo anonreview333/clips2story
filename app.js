@@ -129,6 +129,24 @@ async function fetchText(path) {
 }
 
 /**
+ * Infer GitHub owner/repo from a *.github.io URL so raw media URLs work for any fork or account.
+ * - Project site: https://owner.github.io/repo-name/… → owner/repo-name
+ * - User/org root site: https://owner.github.io/… → owner/owner.github.io
+ */
+function inferGitHubPagesRepo() {
+  const host = window.location.hostname;
+  if (!host.endsWith(".github.io")) return null;
+  const owner = host.slice(0, -".github.io".length);
+  if (!owner) return null;
+  const segments = window.location.pathname.split("/").filter(Boolean);
+  const first = segments[0];
+  if (first && !/\.html?$/i.test(first)) {
+    return { owner, repo: first };
+  }
+  return { owner, repo: `${owner}.github.io` };
+}
+
+/**
  * GitHub Pages does not serve Git LFS objects from the Pages origin; it serves the tiny LFS pointer file.
  * When deployed under github.io, rewrite repo-relative media paths to a GitHub-hosted raw download URL.
  */
@@ -144,9 +162,11 @@ function resolveMediaPath(path) {
     .join("/");
   const isGitHubPages = window.location.hostname.endsWith("github.io");
   if (!isGitHubPages) return `./${encoded}`;
+  const gh = inferGitHubPagesRepo();
+  if (!gh) return `./${encoded}`;
   // Use GitHub's /raw endpoint so Git LFS objects resolve to actual bytes
   // (raw.githubusercontent.com may serve the LFS pointer text instead).
-  return `https://github.com/anonreview333/clips2story/raw/main/${encoded}`;
+  return `https://github.com/${gh.owner}/${gh.repo}/raw/main/${encoded}`;
 }
 
 function buildFramesStrip(videoPath, { startIndex = 1, maxFrames = 30 } = {}) {
@@ -337,7 +357,7 @@ function renderGenreSections(genres) {
         vid.preload = "metadata";
         vid.src = resolveMediaPath(set.sourceLocal);
         originalSection.appendChild(vid);
-      } else {
+      } else if (set.youtubeEmbed) {
         const iframeWrap = document.createElement("div");
         iframeWrap.className =
           "overflow-hidden rounded-lg border border-surface-border/80 bg-black aspect-video w-full shadow-inner";
@@ -438,29 +458,6 @@ function setActiveGenre(genreId) {
       "w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors " +
       (on ? active : inactive);
   });
-}
-
-function youtubeWatchToEmbed(watchUrl) {
-  try {
-    const u = new URL(watchUrl);
-    const v = u.searchParams.get("v");
-    if (v) return `https://www.youtube.com/embed/${v}`;
-  } catch {
-    // ignore
-  }
-  return watchUrl;
-}
-
-function parseCsvRow(csvText, predicate) {
-  const lines = csvText.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) return null;
-  const header = lines[0].split(",").map((s) => s.trim());
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(",").map((s) => s.trim());
-    const row = Object.fromEntries(header.map((h, idx) => [h, parts[idx]]));
-    if (predicate(row)) return row;
-  }
-  return null;
 }
 
 function renderKeyframeGrid({ title, shotIds, size = "sm" }) {
@@ -571,9 +568,8 @@ function renderHomePanel() {
 
   (async () => {
     try {
-      const [csvText, shots, entities, background, captions, asr, ragPool, promptText, stage1, stage2, siteData] =
+      const [shots, entities, background, captions, asr, ragPool, promptText, stage1, stage2, siteData] =
         await Promise.all([
-          fetchText("./demo_video_links.csv"),
           fetchJson("./example/shots/shots.json"),
           fetchJson("./example/entities/entities.json"),
           fetchJson("./example/background/background.json"),
@@ -588,11 +584,9 @@ function renderHomePanel() {
           fetchJson("./data.json"),
         ]);
 
-      const row = parseCsvRow(
-        csvText,
-        (r) => r.genre === "documentary" && r.id === "2"
-      );
-      const youtubeEmbed = youtubeWatchToEmbed(row?.youtube_link || "");
+      const doc2Set = siteData?.genres
+        ?.find((g) => g.id === "documentary")
+        ?.sets?.find((s) => s.id === "2");
 
       const shotIds = Array.isArray(shots)
         ? shots.map((s) => s.shot_id).filter(Boolean)
@@ -710,22 +704,34 @@ function renderHomePanel() {
         "div",
         "overflow-hidden rounded-xl border border-surface-border bg-black aspect-video w-full shadow-inner"
       );
-      const iframe = document.createElement("iframe");
-      iframe.className = "h-full w-full";
-      iframe.src = youtubeEmbed;
-      iframe.title = "Input video (documentary, 2)";
-      iframe.setAttribute("allowfullscreen", "");
-      iframe.setAttribute(
-        "allow",
-        "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      );
-      iframe.loading = "lazy";
-      vWrap.appendChild(iframe);
+      if (doc2Set?.sourceLocal) {
+        const vid = document.createElement("video");
+        vid.className = "h-full w-full object-contain bg-black";
+        vid.controls = true;
+        vid.muted = true;
+        vid.playsInline = true;
+        vid.preload = "metadata";
+        vid.src = resolveMediaPath(doc2Set.sourceLocal);
+        vid.title = "Input video (documentary, 2)";
+        vWrap.appendChild(vid);
+      } else if (doc2Set?.youtubeEmbed) {
+        const iframe = document.createElement("iframe");
+        iframe.className = "h-full w-full";
+        iframe.src = doc2Set.youtubeEmbed;
+        iframe.title = "Input video (documentary, 2)";
+        iframe.setAttribute("allowfullscreen", "");
+        iframe.setAttribute(
+          "allow",
+          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        );
+        iframe.loading = "lazy";
+        vWrap.appendChild(iframe);
+      }
       step1.appendChild(vWrap);
       steps.appendChild(
         createWorkflowStep({
           title: "1) Input Video",
-          subtitle: "Example YouTube source video used for the pipeline.",
+          subtitle: "Example source video used for the pipeline.",
           content: step1,
         })
       );
