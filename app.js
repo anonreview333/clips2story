@@ -150,8 +150,8 @@ function inferGitHubPagesRepo() {
 const GITHUB_PAGES_MEDIA_BRANCH = "main";
 
 /**
- * Direct LFS/binary URL — avoids a 302 from github.com/.../raw/... which breaks
- * HTML5 <video> (range/metadata) and can confuse image loads for large assets.
+ * Direct LFS CDN URL (Git LFS blobs are not on raw.githubusercontent.com as bytes).
+ * Used for <video> only: github.com/.../raw/... 302 chains break range/metadata requests.
  */
 function githubPagesMediaUrl(gh, encodedRepoRelativePath) {
   const o = encodeURIComponent(gh.owner);
@@ -159,9 +159,19 @@ function githubPagesMediaUrl(gh, encodedRepoRelativePath) {
   return `https://media.githubusercontent.com/media/${o}/${r}/${GITHUB_PAGES_MEDIA_BRANCH}/${encodedRepoRelativePath}`;
 }
 
+function githubPagesRawRedirectUrl(gh, encodedRepoRelativePath) {
+  const o = encodeURIComponent(gh.owner);
+  const r = encodeURIComponent(gh.repo);
+  return `https://github.com/${o}/${r}/raw/${GITHUB_PAGES_MEDIA_BRANCH}/${encodedRepoRelativePath}`;
+}
+
 /**
  * GitHub Pages does not serve Git LFS objects from the Pages origin; it serves the tiny LFS pointer file.
- * When deployed under github.io, rewrite repo-relative media paths to GitHub's LFS-aware CDN URL.
+ * When deployed under github.io, point at GitHub-hosted URLs instead of same-origin ./…
+ *
+ * - Non-video: github.com/…/raw/… (302 → raw.githubusercontent.com for normal files, or media host for LFS).
+ *   Browsers follow that redirect for <img> reliably.
+ * - Video: direct media.githubusercontent.com/…/media/… (avoid redirect; required for playback).
  */
 function resolveMediaPath(path) {
   if (!path) return path;
@@ -177,7 +187,9 @@ function resolveMediaPath(path) {
   if (!isGitHubPages) return `./${encoded}`;
   const gh = inferGitHubPagesRepo();
   if (!gh) return `./${encoded}`;
-  return githubPagesMediaUrl(gh, encoded);
+  const isVideo = /\.(mp4|webm|mov|m4v|ogv)$/i.test(cleaned);
+  if (isVideo) return githubPagesMediaUrl(gh, encoded);
+  return githubPagesRawRedirectUrl(gh, encoded);
 }
 
 /** Wire <video> to a repo-relative MP4 via <source type="video/mp4"> (helps with GitHub octet-stream). */
