@@ -166,12 +166,19 @@ function githubPagesRawRedirectUrl(gh, encodedRepoRelativePath) {
 }
 
 /**
+ * Extensions tracked in Git LFS (.gitattributes). On GitHub Pages the site origin
+ * serves LFS pointer stubs, not real bytes — load these from media.githubusercontent.com.
+ */
+function isGitHubLfsMediaPath(cleaned) {
+  return /\.(mp4|webm|mov|m4v|ogv|png)$/i.test(cleaned);
+}
+
+/**
  * GitHub Pages does not serve Git LFS objects from the Pages origin; it serves the tiny LFS pointer file.
  * When deployed under github.io, point at GitHub-hosted URLs instead of same-origin ./…
  *
- * - Non-video: github.com/…/raw/… (302 → raw.githubusercontent.com for normal files, or media host for LFS).
- *   Browsers follow that redirect for <img> reliably.
- * - Video: direct media.githubusercontent.com/…/media/… (avoid redirect; required for playback).
+ * - LFS (mp4, png per .gitattributes): media.githubusercontent.com/…/media/…
+ * - Other assets: github.com/…/raw/… (302 → raw.githubusercontent.com)
  */
 function resolveMediaPath(path) {
   if (!path) return path;
@@ -187,8 +194,7 @@ function resolveMediaPath(path) {
   if (!isGitHubPages) return `./${encoded}`;
   const gh = inferGitHubPagesRepo();
   if (!gh) return `./${encoded}`;
-  const isVideo = /\.(mp4|webm|mov|m4v|ogv)$/i.test(cleaned);
-  if (isVideo) return githubPagesMediaUrl(gh, encoded);
+  if (isGitHubLfsMediaPath(cleaned)) return githubPagesMediaUrl(gh, encoded);
   return githubPagesRawRedirectUrl(gh, encoded);
 }
 
