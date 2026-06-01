@@ -756,6 +756,22 @@ function renderGenreSections(genres) {
   }
 }
 
+function buildValidPageIds(genres) {
+  return new Set(["home", "figures", ...genres.map((g) => g.id)]);
+}
+
+function readPageIdFromUrl(validPageIds) {
+  const raw = location.hash.replace(/^#/, "").trim();
+  if (!raw) return "home";
+  const id = decodeURIComponent(raw);
+  return validPageIds.has(id) ? id : "home";
+}
+
+function pageUrlForId(pageId) {
+  const base = `${location.pathname}${location.search}`;
+  return pageId === "home" ? base : `${base}#${encodeURIComponent(pageId)}`;
+}
+
 function setActiveGenre(genreId) {
   document.querySelectorAll("[data-genre-panel]").forEach((el) => {
     el.classList.toggle("hidden", el.dataset.genrePanel !== genreId);
@@ -775,6 +791,45 @@ function setActiveGenre(genreId) {
       "w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors " +
       (on ? active : inactive);
   });
+}
+
+function initPageRouting(genres) {
+  const validPageIds = buildValidPageIds(genres);
+  let syncingFromUrl = false;
+
+  const applyPage = (pageId, { updateUrl = true, replace = false } = {}) => {
+    const id = validPageIds.has(pageId) ? pageId : "home";
+    setActiveGenre(id);
+    if (updateUrl) {
+      const url = pageUrlForId(id);
+      const state = { page: id };
+      if (replace) history.replaceState(state, "", url);
+      else history.pushState(state, "", url);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  window.addEventListener("popstate", () => {
+    syncingFromUrl = true;
+    applyPage(readPageIdFromUrl(validPageIds), { updateUrl: false });
+    syncingFromUrl = false;
+  });
+
+  window.addEventListener("hashchange", () => {
+    if (syncingFromUrl) return;
+    syncingFromUrl = true;
+    applyPage(readPageIdFromUrl(validPageIds), { updateUrl: false });
+    syncingFromUrl = false;
+  });
+
+  const navigateToPage = (pageId, { replace = false } = {}) => {
+    if (syncingFromUrl) return;
+    syncingFromUrl = true;
+    applyPage(pageId, { updateUrl: true, replace });
+    syncingFromUrl = false;
+  };
+
+  return navigateToPage;
 }
 
 function renderKeyframeGrid({ title, shotIds, size = "sm" }) {
@@ -1360,15 +1415,12 @@ async function main() {
   const genres = data.genres || [];
   renderGenreSections(genres);
 
-  const first = "home";
-  let active = first;
+  const initialPage = readPageIdFromUrl(buildValidPageIds(genres));
+  const navigateToPage = initPageRouting(genres);
 
-  buildGenreButtons(genres, active, (id) => {
-    active = id;
-    setActiveGenre(id);
-  });
+  buildGenreButtons(genres, initialPage, (id) => navigateToPage(id));
+  navigateToPage(initialPage, { replace: true });
 
-  setActiveGenre(active);
   document.getElementById("app").classList.remove("hidden");
 }
 
