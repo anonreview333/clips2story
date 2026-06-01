@@ -335,11 +335,264 @@ function buildGenreButtons(genres, activeId, onSelect) {
   title.textContent = "Pages";
   desktop.appendChild(title);
 
-  const pages = [{ id: "home", label: "Home" }, ...genres];
+  const pages = [
+    { id: "home", label: "Home" },
+    { id: "figures", label: "Figures" },
+    ...genres,
+  ];
   for (const g of pages) {
     mobile.appendChild(mkBtn(g, true));
     desktop.appendChild(mkBtn(g, false));
   }
+}
+
+function tableMark(yes) {
+  const span = el(
+    "span",
+    `inline-block text-center text-lg font-semibold ${yes ? "text-emerald-400" : "text-red-400"}`,
+    yes ? "✓" : "✗"
+  );
+  span.setAttribute("aria-label", yes ? "Yes" : "No");
+  return span;
+}
+
+function createFigureCard({ images, alt, caption }) {
+  const card = el(
+    "figure",
+    "rounded-2xl border border-surface-border bg-surface-raised/30 p-4 shadow-xl shadow-black/20 sm:p-6"
+  );
+  const stack = el("div", "space-y-4");
+  const paths = Array.isArray(images) ? images : [images];
+  for (const src of paths) {
+    const img = document.createElement("img");
+    img.src = resolveMediaPath(src);
+    img.alt = alt;
+    img.loading = "lazy";
+    img.className = "mx-auto block h-auto max-w-full w-full rounded-lg border border-surface-border/60 bg-black/20";
+    stack.appendChild(img);
+  }
+  card.appendChild(stack);
+  if (caption) {
+    card.appendChild(
+      el(
+        "figcaption",
+        "mt-4 text-sm leading-relaxed text-slate-300 sm:text-[0.9375rem]",
+        caption
+      )
+    );
+  }
+  return card;
+}
+
+function createFiguresSection(title, content) {
+  const section = el("section", "space-y-4");
+  section.appendChild(el("h2", "text-lg font-semibold text-white sm:text-xl", title));
+  section.appendChild(content);
+  return section;
+}
+
+const RELATED_METHODS_ROWS = [
+  { model: "MovieClip (Bose et al., 2023)", values: [true, false, true, false, false, false, false, false] },
+  { model: "A2Summ (He et al., 2023)", values: [true, false, true, false, false, true, false, false] },
+  { model: "LfVS (Argaw et al., 2024)", values: [true, false, true, false, false, true, false, false] },
+  { model: "TaleSumm (Singh et al., 2024)", values: [true, false, true, false, false, true, false, false] },
+  { model: "VideoXUM (Lin et al., 2023b)", values: [true, false, true, false, false, false, false, true] },
+  { model: "LAVE (Wang et al., 2024)", values: [true, false, true, false, true, true, true, false] },
+  { model: "TeaserGen (Xu et al., 2024)", values: [true, false, true, false, false, true, true, true] },
+  { model: "REGen (Xu et al., 2025)", values: [true, false, true, false, false, true, true, true] },
+  { model: "LLM-grounded (Lian et al., 2023)", values: [false, true, false, false, true, false, true, false] },
+  { model: "Vidmento (Yeh et al., 2026)", values: [true, true, true, false, true, false, true, false] },
+  { model: "VideoPoet (Kondratyuk et al., 2023)", values: [true, true, true, false, true, false, true, false] },
+  {
+    model: "Clips2Story (Ours)",
+    values: [true, false, false, true, true, true, true, true],
+    connNarrNote: true,
+    highlight: true,
+  },
+];
+
+const RELATED_METHODS_COLUMNS = [
+  "Summ./Edit.",
+  "Gen.",
+  "Ord.",
+  "Unord.",
+  "Keyword guided",
+  "Clip retr.",
+  "Narr. ord.",
+  "Conn. narr.",
+];
+
+function renderRelatedMethodsTable() {
+  const scroll = el(
+    "div",
+    "-mx-1 overflow-x-auto rounded-xl border border-surface-border bg-surface-raised/25"
+  );
+  const table = document.createElement("table");
+  table.className = "w-full min-w-[52rem] border-collapse text-sm";
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  headRow.className = "border-b border-surface-border bg-surface-raised/80";
+
+  const modelTh = document.createElement("th");
+  modelTh.scope = "col";
+  modelTh.className =
+    "sticky left-0 z-20 min-w-[11rem] border-r border-surface-border bg-surface-raised px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-300";
+  modelTh.textContent = "Model";
+  headRow.appendChild(modelTh);
+
+  for (const col of RELATED_METHODS_COLUMNS) {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.className =
+      "px-2 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400";
+    th.textContent = col;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const row of RELATED_METHODS_ROWS) {
+    const tr = document.createElement("tr");
+    tr.className = row.highlight
+      ? "border-b border-surface-border bg-cyan-500/10"
+      : "border-b border-surface-border/70";
+
+    const modelTd = document.createElement("td");
+    modelTd.className =
+      "sticky left-0 z-10 border-r border-surface-border bg-surface-raised px-3 py-2.5 text-sm font-medium text-white";
+    if (row.highlight) modelTd.classList.add("bg-cyan-950/40");
+    modelTd.textContent = row.model;
+    tr.appendChild(modelTd);
+
+    row.values.forEach((yes, i) => {
+      const td = document.createElement("td");
+      td.className = "px-2 py-2.5 text-center";
+      if (row.connNarrNote && i === row.values.length - 1 && yes) {
+        const wrap = el("span", "inline-flex items-center justify-center gap-0.5");
+        wrap.appendChild(tableMark(true));
+        wrap.appendChild(el("span", "text-emerald-400/90 text-xs font-medium", "*"));
+        td.appendChild(wrap);
+      } else {
+        td.appendChild(tableMark(yes));
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  scroll.appendChild(table);
+
+  const wrap = el("div", "space-y-3");
+  wrap.appendChild(scroll);
+  wrap.appendChild(
+    el(
+      "p",
+      "text-sm leading-relaxed text-slate-300 sm:text-[0.9375rem]",
+      "Table 1. Comparison of Clips2Story with related methods. Unlike existing baselines, our approach operates on an unordered pool of video clips and supports keyword-guided clip retrieval, narrative ordering, and connective narration. Here, Summ. = summarization, Edit. = editing, Gen. = generation, Ord. = ordered, Unord. = unordered, retr. = retrieval, Narr. = narrative, Conn. = connective, and narr. = narration. *Achieved via the Clips2Story-ND pipeline."
+    )
+  );
+  return wrap;
+}
+
+function renderFiguresPanel() {
+  const wrap = el("div", "space-y-12");
+
+  wrap.appendChild(
+    el("h1", "text-2xl font-semibold tracking-tight text-white sm:text-3xl", "Extended Figures")
+  );
+
+  wrap.appendChild(
+    createFiguresSection(
+      "Related Methods Comparison",
+      renderRelatedMethodsTable()
+    )
+  );
+
+  wrap.appendChild(
+    createFiguresSection(
+      "Pipeline Overview",
+      createFigureCard({
+        images: "plots/1.png",
+        alt: "Clips2Story-ND pipeline overview",
+        caption:
+          "Figure 1. Overview of the Clips2Story-ND pipeline. Given a pool of video clips and a user-specified keyword, the system first retrieves a subset of relevant videos from the video pool and then extracts textual descriptors from the candidate videos. By embedding all the video clip information in the LLM prompt, we then instruct an LLM to generate a storyboard featuring interweaving selected video clips and generated narrations.",
+      })
+    )
+  );
+
+  wrap.appendChild(
+    createFiguresSection(
+      "Dataset Construction",
+      createFigureCard({
+        images: "plots/2.png",
+        alt: "Dataset construction process",
+        caption:
+          "Figure 2. Illustration of the dataset construction process. The original input video is processed into two distinct candidate pools: a fine-grained clip-level setting and a grouped scene-level setting.",
+      })
+    )
+  );
+
+  wrap.appendChild(
+    createFiguresSection(
+      "Qualitative Storyboard Examples",
+      createFigureCard({
+        images: "plots/3.png",
+        alt: "Qualitative storyboard examples",
+        caption:
+          "Figure 3. Qualitative examples of storyboards generated by Clips2Story-ND. The timestamp below each clip denotes the original start time of the clip in the source video. This demonstrates both keyword-aligned visual selection and successful temporal reconstruction from a completely shuffled clip pool.",
+      })
+    )
+  );
+
+  wrap.appendChild(
+    createFiguresSection(
+      "Keyword Relevance and Coverage",
+      createFigureCard({
+        images: "plots/4.png",
+        alt: "Keyword relevance and keyword coverage density plots",
+        caption:
+          "Figure 4. Density distributions of mean keyword relevance and keyword coverage. The retrieval stage concentrates the candidate pool toward the target keyword, and both Clips2Story variants effectively generate storyboards with higher semantic alignment than the original source video.",
+      })
+    )
+  );
+
+  const quant = el("section", "space-y-8");
+  quant.appendChild(
+    el("h2", "text-lg font-semibold text-white sm:text-xl", "Quantitative Results")
+  );
+
+  const sceneLevel = el("div", "space-y-4");
+  sceneLevel.appendChild(
+    el("h3", "text-base font-semibold text-slate-200", "Scene-level setting")
+  );
+  sceneLevel.appendChild(
+    createFigureCard({
+      images: ["plots/5.1.png", "plots/5.2.png"],
+      alt: "Scene-level quantitative results",
+      caption:
+        "Figure 5. Top: Distribution of generated storyboard durations across baselines and proposed pipelines, evaluated under the scene-level setting. Bottom: Comparison of CLIPScore, VTGHLS, KR, and KC@τ for REGen, Clips2Story-NF, and Clips2Story-ND across five video genres under the scene-level setting. Error bars represent 95% confidence intervals.",
+    })
+  );
+  quant.appendChild(sceneLevel);
+
+  const clipLevel = el("div", "space-y-4");
+  clipLevel.appendChild(
+    el("h3", "text-base font-semibold text-slate-200", "Clip-level setting")
+  );
+  clipLevel.appendChild(
+    createFigureCard({
+      images: ["plots/6.1.png", "plots/6.2.png"],
+      alt: "Clip-level quantitative results",
+      caption:
+        "Figure 6. Top: Distribution of generated storyboard durations across baselines and proposed pipelines, evaluated under the clip-level setting. Bottom: Comparison of CLIPScore, VTGHLS, KR, and KC@τ for REGen, Clips2Story-NF, and Clips2Story-ND across five video genres under the clip-level setting. Error bars represent 95% confidence intervals.",
+    })
+  );
+  quant.appendChild(clipLevel);
+
+  wrap.appendChild(quant);
+  return wrap;
 }
 
 function renderGenreSections(genres) {
@@ -352,6 +605,13 @@ function renderGenreSections(genres) {
   home.className = "genre-panel hidden space-y-6 pb-16";
   home.appendChild(renderHomePanel());
   container.appendChild(home);
+
+  const figures = document.createElement("div");
+  figures.id = "genre-panel-figures";
+  figures.dataset.genrePanel = "figures";
+  figures.className = "genre-panel hidden space-y-6 pb-16";
+  figures.appendChild(renderFiguresPanel());
+  container.appendChild(figures);
 
   for (const g of genres) {
     const wrap = document.createElement("div");
