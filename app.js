@@ -315,11 +315,11 @@ function buildFramesGridFolded(
 
 function buildGenreButtons(genres, activeId, onSelect) {
   const mkBtn = (g, isMobile) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
+    const btn = document.createElement("a");
+    btn.href = hrefForPage(g.id);
     btn.dataset.genre = g.id;
     const base =
-      "whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ";
+      "block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors no-underline ";
     const active =
       "bg-cyan-500/20 text-cyan-200 ring-1 ring-cyan-500/40";
     const inactive = "text-slate-400 hover:bg-white/5 hover:text-slate-200";
@@ -327,7 +327,10 @@ function buildGenreButtons(genres, activeId, onSelect) {
     if (isMobile) btn.classList.add("shrink-0");
     else btn.classList.add("w-full", "text-left");
     btn.textContent = g.label;
-    btn.addEventListener("click", () => onSelect(g.id));
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      onSelect(g.id);
+    });
     return btn;
   };
 
@@ -760,16 +763,38 @@ function buildValidPageIds(genres) {
   return new Set(["home", "figures", ...genres.map((g) => g.id)]);
 }
 
-function readPageIdFromUrl(validPageIds) {
-  const raw = location.hash.replace(/^#/, "").trim();
+function readPageIdFromUrl(validPageIds, { hash = location.hash } = {}) {
+  const fromQuery = new URLSearchParams(location.search).get("page");
+  if (fromQuery && validPageIds.has(fromQuery)) return fromQuery;
+
+  const raw = String(hash || "").replace(/^#/, "").trim();
   if (!raw) return "home";
   const id = decodeURIComponent(raw);
   return validPageIds.has(id) ? id : "home";
 }
 
-function pageUrlForId(pageId) {
+function hrefForPage(pageId) {
   const base = `${location.pathname}${location.search}`;
   return pageId === "home" ? base : `${base}#${encodeURIComponent(pageId)}`;
+}
+
+function syncUrlToPage(pageId, { replace = false } = {}) {
+  const target = hrefForPage(pageId);
+  const current = `${location.pathname}${location.search}${location.hash}`;
+  if (target === current) return;
+
+  if (pageId === "home") {
+    if (replace) history.replaceState({ page: "home" }, "", target);
+    else history.pushState({ page: "home" }, "", target);
+    return;
+  }
+
+  // Hash-only updates are the most reliable on GitHub Pages static hosting.
+  if (replace) {
+    history.replaceState({ page: pageId }, "", `#${encodeURIComponent(pageId)}`);
+  } else {
+    location.hash = pageId;
+  }
 }
 
 function setActiveGenre(genreId) {
@@ -779,55 +804,50 @@ function setActiveGenre(genreId) {
   const active =
     "bg-cyan-500/20 text-cyan-200 ring-1 ring-cyan-500/40";
   const inactive = "text-slate-400 hover:bg-white/5 hover:text-slate-200";
-  document.querySelectorAll("#genre-tabs-mobile button").forEach((btn) => {
-    const on = btn.dataset.genre === genreId;
-    btn.className =
-      "whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors shrink-0 " +
-      (on ? active : inactive);
+  const navClass = (on, isMobile) =>
+    "block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors no-underline " +
+    (isMobile ? "shrink-0 " : "w-full text-left ") +
+    (on ? active : inactive);
+
+  document.querySelectorAll("#genre-tabs-mobile a[data-genre]").forEach((btn) => {
+    btn.className = navClass(btn.dataset.genre === genreId, true);
   });
-  document.querySelectorAll("#genre-tabs-desktop button").forEach((btn) => {
-    const on = btn.dataset.genre === genreId;
-    btn.className =
-      "w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors " +
-      (on ? active : inactive);
+  document.querySelectorAll("#genre-tabs-desktop a[data-genre]").forEach((btn) => {
+    btn.className = navClass(btn.dataset.genre === genreId, false);
   });
 }
 
-function initPageRouting(genres) {
+function initPageRouting(genres, { initialHash = location.hash } = {}) {
   const validPageIds = buildValidPageIds(genres);
-  let syncingFromUrl = false;
 
-  const applyPage = (pageId, { updateUrl = true, replace = false } = {}) => {
+  const showPage = (pageId, { updateUrl = false, replace = false } = {}) => {
     const id = validPageIds.has(pageId) ? pageId : "home";
     setActiveGenre(id);
-    if (updateUrl) {
-      const url = pageUrlForId(id);
-      const state = { page: id };
-      if (replace) history.replaceState(state, "", url);
-      else history.pushState(state, "", url);
-    }
+    if (updateUrl) syncUrlToPage(id, { replace });
     window.scrollTo({ top: 0, behavior: "smooth" });
+    return id;
   };
-
-  window.addEventListener("popstate", () => {
-    syncingFromUrl = true;
-    applyPage(readPageIdFromUrl(validPageIds), { updateUrl: false });
-    syncingFromUrl = false;
-  });
 
   window.addEventListener("hashchange", () => {
-    if (syncingFromUrl) return;
-    syncingFromUrl = true;
-    applyPage(readPageIdFromUrl(validPageIds), { updateUrl: false });
-    syncingFromUrl = false;
+    showPage(readPageIdFromUrl(validPageIds));
   });
 
-  const navigateToPage = (pageId, { replace = false } = {}) => {
-    if (syncingFromUrl) return;
-    syncingFromUrl = true;
-    applyPage(pageId, { updateUrl: true, replace });
-    syncingFromUrl = false;
+  window.addEventListener("popstate", () => {
+    const fromState = history.state?.page;
+    const id =
+      fromState && validPageIds.has(fromState)
+        ? fromState
+        : readPageIdFromUrl(validPageIds);
+    showPage(id);
+  });
+
+  const navigateToPage = (pageId) => {
+    showPage(pageId, { updateUrl: true, replace: false });
   };
+
+  const initialPage = readPageIdFromUrl(validPageIds, { hash: initialHash });
+  showPage(initialPage);
+  syncUrlToPage(initialPage, { replace: true });
 
   return navigateToPage;
 }
@@ -1400,6 +1420,8 @@ function renderFinalFramesComparisonSection(siteData) {
 }
 
 async function main() {
+  const initialHash = window.__INITIAL_HASH__ || location.hash;
+
   let data;
   try {
     const res = await fetch("./data.json", { cache: "no-store" });
@@ -1415,11 +1437,12 @@ async function main() {
   const genres = data.genres || [];
   renderGenreSections(genres);
 
-  const initialPage = readPageIdFromUrl(buildValidPageIds(genres));
-  const navigateToPage = initPageRouting(genres);
+  const validPageIds = buildValidPageIds(genres);
+  const initialPage = readPageIdFromUrl(validPageIds, { hash: initialHash });
 
+  let navigateToPage = () => {};
   buildGenreButtons(genres, initialPage, (id) => navigateToPage(id));
-  navigateToPage(initialPage, { replace: true });
+  navigateToPage = initPageRouting(genres, { initialHash });
 
   document.getElementById("app").classList.remove("hidden");
 }
