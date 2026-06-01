@@ -362,19 +362,25 @@ function tableMark(yes) {
   return span;
 }
 
+function normalizeFigureImages(images) {
+  const list = Array.isArray(images) ? images : [images];
+  return list.map((item) =>
+    typeof item === "string" ? { src: item, maxWidthClass: "max-w-full" } : item
+  );
+}
+
 function createFigureCard({ images, alt, caption }) {
   const card = el(
     "figure",
     "rounded-2xl border border-surface-border bg-surface-raised/30 p-4 shadow-xl shadow-black/20 sm:p-6"
   );
   const stack = el("div", "space-y-4");
-  const paths = Array.isArray(images) ? images : [images];
-  for (const src of paths) {
+  for (const { src, maxWidthClass = "max-w-full" } of normalizeFigureImages(images)) {
     const img = document.createElement("img");
     img.src = resolveMediaPath(src);
     img.alt = alt;
     img.loading = "lazy";
-    img.className = "mx-auto block h-auto max-w-full w-full rounded-lg border border-surface-border/60 bg-black/20";
+    img.className = `mx-auto block h-auto w-full ${maxWidthClass} rounded-lg border border-surface-border/60 bg-black/20`;
     stack.appendChild(img);
   }
   card.appendChild(stack);
@@ -575,7 +581,10 @@ function renderFiguresPanel() {
   );
   sceneLevel.appendChild(
     createFigureCard({
-      images: ["plots/5.1.png", "plots/5.2.png"],
+      images: [
+        { src: "plots/5.1.png", maxWidthClass: "max-w-2xl sm:max-w-3xl" },
+        { src: "plots/5.2.png", maxWidthClass: "max-w-full" },
+      ],
       alt: "Scene-level quantitative results",
       caption:
         "Figure 5. Top: Distribution of generated storyboard durations across baselines and proposed pipelines, evaluated under the scene-level setting. Bottom: Comparison of CLIPScore, VTGHLS, KR, and KC@τ for REGen, Clips2Story-NF, and Clips2Story-ND across five video genres under the scene-level setting. Error bars represent 95% confidence intervals.",
@@ -589,7 +598,10 @@ function renderFiguresPanel() {
   );
   clipLevel.appendChild(
     createFigureCard({
-      images: ["plots/6.1.png", "plots/6.2.png"],
+      images: [
+        { src: "plots/6.1.png", maxWidthClass: "max-w-2xl sm:max-w-3xl" },
+        { src: "plots/6.2.png", maxWidthClass: "max-w-full" },
+      ],
       alt: "Clip-level quantitative results",
       caption:
         "Figure 6. Top: Distribution of generated storyboard durations across baselines and proposed pipelines, evaluated under the clip-level setting. Bottom: Comparison of CLIPScore, VTGHLS, KR, and KC@τ for REGen, Clips2Story-NF, and Clips2Story-ND across five video genres under the clip-level setting. Error bars represent 95% confidence intervals.",
