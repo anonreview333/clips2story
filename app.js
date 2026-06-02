@@ -532,7 +532,7 @@ function renderFiguresPanel() {
         images: "plots/1.png",
         alt: "Clips2Story-ND pipeline overview",
         caption:
-          "Figure 1. Overview of the Clips2Story-ND pipeline. Given a pool of video clips and a user-specified keyword, the system first retrieves a subset of relevant videos from the video pool and then extracts textual descriptors from the candidate videos. By embedding all the video clip information in the LLM prompt, we then instruct an LLM to generate a storyboard featuring interweaving selected video clips and generated narrations.",
+          "Figure 1. Overview of the Clips2Story-ND pipeline. The pipeline consists of three stages: Stage 1 performs shot-level multimodal analysis to extract textual descriptors from raw video materials; Stage 2 takes a user-specified keyword as input; and Stage 3 retrieves keyword-conditioned clips from the video pool. The user-specified keyword and the textual descriptors of the retrieved clips are then provided to the LLM prompt to generate a storyboard featuring interweaving selected video clips and generated narrations.",
       })
     )
   );
