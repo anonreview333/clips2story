@@ -362,6 +362,25 @@ function normalizeFigureImages(images) {
   );
 }
 
+function createFigureImage(src, alt) {
+  const img = document.createElement("img");
+  img.alt = alt;
+  img.loading = "lazy";
+  img.decoding = "async";
+
+  const mediaUrl = resolveMediaPath(src);
+  let retried = false;
+  img.addEventListener("error", () => {
+    if (retried) return;
+    retried = true;
+    // Retry with cache-bust (GitHub Pages may serve LFS pointer stubs on same-origin URLs).
+    const sep = mediaUrl.includes("?") ? "&" : "?";
+    img.src = `${mediaUrl}${sep}v=${Date.now()}`;
+  });
+  img.src = mediaUrl;
+  return img;
+}
+
 function createFigureCard({ images, alt }) {
   const card = el(
     "figure",
@@ -369,10 +388,7 @@ function createFigureCard({ images, alt }) {
   );
   const stack = el("div", "space-y-4");
   for (const { src, maxWidthClass = "max-w-full" } of normalizeFigureImages(images)) {
-    const img = document.createElement("img");
-    img.src = resolveMediaPath(src);
-    img.alt = alt;
-    img.loading = "lazy";
+    const img = createFigureImage(src, alt);
     img.className = `mx-auto block h-auto w-full ${maxWidthClass} rounded-lg border border-surface-border/60 bg-black/20`;
     stack.appendChild(img);
   }
