@@ -392,11 +392,15 @@ function renderFiguresPanel() {
 
   wrap.appendChild(
     createFigureCard({
-      images: [
-        { src: "plots/5.1.png", maxWidthClass: "max-w-2xl sm:max-w-3xl" },
-        { src: "plots/5.2.png", maxWidthClass: "max-w-full" },
-      ],
+      images: "plots/5.2.png",
       alt: "Scene-level quantitative results",
+    })
+  );
+
+  wrap.appendChild(
+    createFigureCard({
+      images: "plots/6.2.png",
+      alt: "Clip-level quantitative results",
     })
   );
 
