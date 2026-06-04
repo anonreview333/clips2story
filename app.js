@@ -420,6 +420,13 @@ function renderFiguresPanel() {
     })
   );
 
+  wrap.appendChild(
+    createFigureCard({
+      images: "plots/7.2.png",
+      alt: "Figure 7.2 quantitative results",
+    })
+  );
+
   return wrap;
 }
 
